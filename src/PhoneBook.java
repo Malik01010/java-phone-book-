@@ -3,7 +3,7 @@ import java.io.*;
 
 public class PhoneBook {
 
-    private static final String DATA_PATH = "contacts.dat";
+    private static final String DATA_PATH = "src/contacts.dat";
 
     public static void saveContacts(List<Contact> contacts) {
         try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(DATA_PATH))) {
@@ -78,6 +78,9 @@ public class PhoneBook {
             System.out.print("\n> ");
             line = input.nextLine().trim();
         }
+
+        List<Contact> test = loadContacts();
+        System.out.println(test);
 
         System.out.println("'Phone Book 0.1' terminated.");
     }
