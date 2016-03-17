@@ -1,8 +1,5 @@
 import java.io.Serializable;
 
-/*
- * Created by MapuH on 16-Mar-2016
- */
 public class Contact implements Serializable {
 
     private String name;
