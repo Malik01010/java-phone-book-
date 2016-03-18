@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.util.List;
 
 public class Contact implements Serializable {
 
@@ -19,8 +20,8 @@ public class Contact implements Serializable {
     }
 
     public void setName(String name) throws Exception {
-        if (!name.matches("^.{2,40}$")) {
-            throw new Exception("Name cannot exceed 40 characters.");
+        if (!name.matches("^.{2,50}$")) {
+            throw new Exception("Name must be in range 2 - 50 symbols.");
         } else {
             this.name = name;
         }
@@ -32,7 +33,7 @@ public class Contact implements Serializable {
 
     public void setNumber(String number) throws Exception {
         if (!number.matches("^\\+?[0-9 ]{3,25}$")) {
-            throw new Exception("Number can contain only '+', spaces and digits, max length 25.");
+            throw new Exception("Number may contain only '+', spaces and digits. Min length 3, max length 25.");
         } else {
             this.number = number;
         }
@@ -42,4 +43,15 @@ public class Contact implements Serializable {
     public String toString() {
         return this.name + " : " + this.number;
     }
+
+    // Returns true if contact name is already present in a given list of contacts
+    public boolean exists(List<Contact> contacts) {
+        for (Contact entry : contacts) {
+            if (entry.getName().equals(this.name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
