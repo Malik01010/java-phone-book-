@@ -1,33 +1,53 @@
 import java.util.*;
 import java.io.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class PhoneBook {
 
-    private static final String DATA_PATH = "src/contacts.dat";
+    private static final String DATA_PATH = "src/contacts.csv";
 
-    public static void saveContacts(List<Contact> contacts) {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(DATA_PATH))) {
-            oos.writeObject(contacts);
-            oos.close();
+    private static void saveContacts(Map<String, List<String>> contacts) {
+        try (PrintWriter writer = new PrintWriter(DATA_PATH)) {
+            if (!contacts.isEmpty()) {
+                for (Map.Entry<String, List<String>> entry : contacts.entrySet()) {
+                    String line = String.format("%s,\"%s\"",
+                            entry.getKey(), entry.getValue().toString().replaceAll("\\[|]", ""));
+                    writer.println(line);
+                }
+            } else {
+                writer.println();
+            }
 
         } catch (IOException ioex) {
-            System.err.println(ioex.toString());
+            System.err.println(ioex.getMessage());
         }
     }
 
-    public static List<Contact> loadContacts() {
-        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(DATA_PATH))) {
-            List<Contact> contacts = (List<Contact>) ois.readObject();
-            ois.close();
-            return contacts;
+    private static void loadContacts(Map<String, List<String>> contacts) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(DATA_PATH))) {
 
-        } catch (ClassNotFoundException | IOException ex) {
-            System.err.println(ex.toString());
-            return null;
+            Pattern pattern = Pattern.compile("^([^,\"]{2,50}),\"([0-9+, ]+)\"$");
+
+            while (true) {
+                String line = reader.readLine();
+                if (line == null) {
+                    break;
+                }
+
+                Matcher matcher = pattern.matcher(line);
+                if (matcher.find()) {
+                    String[] numbers = matcher.group(2).split(",\\s*");
+                    contacts.put(matcher.group(1), Arrays.asList(numbers));
+                }
+            }
+
+        } catch (IOException ioex) {
+            System.err.println("Could not load contacts, phone book is empty!");
         }
     }
 
-    public static void listCommands() {
+    private static void listCommands() {
         System.out.println("list - lists all saved contacts in alphabetical  order");
         System.out.println("show - finds a contact by name");
         System.out.println("find - searches for a contact by number");
@@ -38,49 +58,37 @@ public class PhoneBook {
         System.out.println("---------------------------");
     }
 
-    public static void listContacts() {
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Sorry, could not load list of contacts!");
-        } else {
-            Collections.sort(contacts, new ContactComparator());
-            for (Contact entry : contacts) {
-                System.out.println(entry);
+    private static void listContacts(Map<String, List<String>> contacts) {
+        for (Map.Entry<String, List<String>> entry : contacts.entrySet()) {
+            System.out.println(entry.getKey());
+            for (String number : entry.getValue()) {
+                System.out.println(number);
             }
+            System.out.println();
         }
 
         System.out.println();
         System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
     }
 
-    public static void showContact(Scanner input) {
+    private static void showContact(Map<String, List<String>> contacts, Scanner input) {
         System.out.println("Enter the name you are looking for:");
         String name = input.nextLine().trim();
 
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Sorry, could not load list of contacts!");
+        if (contacts.containsKey(name)) {
+            System.out.println(name);
+            for (String number : contacts.get(name)) {
+                System.out.println(number);
+            }
         } else {
-
-            boolean found = false;
-            for (Contact entry : contacts) {
-                if (entry.getName().equals(name)) {
-                    System.out.println(entry);
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                System.out.println("Sorry, nothing found!");
-            }
+            System.out.println("Sorry, nothing found!");
         }
 
         System.out.println();
         System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
     }
 
-    public static void findContact(Scanner input) {
+    private static void findContact(Map<String, List<String>> contacts, Scanner input) {
         System.out.println("Enter a number to see to whom does it belong:");
         String number = input.nextLine().trim();
 
@@ -90,20 +98,10 @@ public class PhoneBook {
             number = input.nextLine().trim();
         }
 
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Sorry, could not load list of contacts!");
-        } else {
-            boolean found = false;
-            for (Contact entry : contacts) {
-                if (entry.getNumber().equals(number)) {
-                    System.out.println(entry);
-                    found = true;
-                }
-            }
-
-            if (!found) {
-                System.out.println("Sorry, number not found!");
+        for (Map.Entry<String, List<String>> entry : contacts.entrySet()) {
+            if (entry.getValue().contains(number)) {
+                System.out.println(entry.getKey());
+                System.out.println(number);
             }
         }
 
@@ -111,127 +109,126 @@ public class PhoneBook {
         System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
     }
 
-    public static void addContact(Scanner input) {
+    private static void addContact(Map<String, List<String>> contacts, Scanner input) {
         System.out.println("You are about to add a new contact to the phone book.");
-        Contact newContact;
+        String name;
+        String number;
+
         while (true) {
             System.out.println("Enter contact name:");
-            String name = input.nextLine().trim();
-            System.out.println("Enter contact number:");
-            String number = input.nextLine().trim();
-
-            newContact = new Contact(name, number);
-            if (newContact.getNumber() != null) {
+            name = input.nextLine().trim();
+            if (name.matches("^.{2,50}$")) {
                 break;
-            }
-        }
-
-        System.out.println(newContact);
-
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Could not load list of contacts! Creating new phone book...");
-            contacts = new ArrayList<Contact>();
-        }
-
-        if (newContact.exists(contacts)) {
-            System.out.println("This name already exists in the phone book!");
-            System.out.println("You can use 'show'to view it or 'edit' to modify the record.");
-        } else {
-            contacts.add(newContact);
-            saveContacts(contacts);
-            System.out.printf("Successfully added contact '%s' !\n", newContact);
-        }
-
-        System.out.println();
-        System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
-    }
-
-    public static void editContact(Scanner input) {
-        System.out.println("Enter name of the contact you would like to modify:");
-        String name = input.nextLine().trim();
-
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Sorry, could not load list of contacts!");
-        } else {
-            int position = -1;
-
-            for (int i = 0; i < contacts.size(); i++) {
-                if (contacts.get(i).getName().equals(name)) {
-                    position = i;
-                    break;
-                }
-            }
-
-            if (position > -1) {
-                System.out.printf("Current number for %s is %s\n",
-                        contacts.get(position).getName(), contacts.get(position).getNumber());
-                System.out.println("Enter a new number:");
-                String number = input.nextLine().trim();
-                while (true) {
-                    try {
-                        contacts.get(position).setNumber(number);
-                        System.out.printf("Number for %s was changed to %s. Record updated!\n",
-                                contacts.get(position).getName(), contacts.get(position).getNumber());
-                        saveContacts(contacts);
-                        break;
-                    } catch (Exception e) {
-                        System.err.println(e.getMessage());
-                        System.out.println("Enter a new number:");
-                    }
-                    number = input.nextLine().trim();
-                }
-
             } else {
-                System.out.println("Sorry, name not found!");
+                System.out.println("Name must be in range 2 - 50 symbols.");
+            }
+        }
+
+        while (true) {
+            System.out.println("Enter contact number:");
+            number = input.nextLine().trim();
+            if (number.matches("^\\+?[0-9 ]{3,25}$")) {
+                break;
+            } else {
+                System.out.println("Number may contain only '+', spaces and digits. Min length 3, max length 25.");
+            }
+        }
+
+        if (contacts.containsKey(name)) {
+            System.out.printf("'%s' already exists in the phone book!\n", name);
+
+            if (contacts.get(name).contains(number)) {
+                System.out.printf("Number %s already available for contact '%s'.\n", number, name);
+            } else {
+                contacts.get(name).add(number);
+                saveContacts(contacts);
+                System.out.printf("Successfully added number %s for contact '%s'.\n", number, name);
             }
 
+        } else {
+            List<String> numbers = new ArrayList<>();
+            numbers.add(number);
+            contacts.put(name, numbers);
+            saveContacts(contacts);
+            System.out.printf("Successfully added contact '%s' !\n", name);
         }
 
         System.out.println();
         System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
     }
 
-    public static void deleteContact(Scanner input) {
+//    public static void editContact(Scanner input) {
+//        System.out.println("Enter name of the contact you would like to modify:");
+//        String name = input.nextLine().trim();
+//
+//        List<Contact> contacts = loadContacts();
+//        if (contacts == null) {
+//            System.out.println("Sorry, could not load list of contacts!");
+//        } else {
+//            int position = -1;
+//
+//            for (int i = 0; i < contacts.size(); i++) {
+//                if (contacts.get(i).getName().equals(name)) {
+//                    position = i;
+//                    break;
+//                }
+//            }
+//
+//            if (position > -1) {
+//                System.out.printf("Current number for %s is %s\n",
+//                        contacts.get(position).getName(), contacts.get(position).getNumber());
+//                System.out.println("Enter a new number:");
+//                String number = input.nextLine().trim();
+//                while (true) {
+//                    try {
+//                        contacts.get(position).setNumber(number);
+//                        System.out.printf("Number for %s was changed to %s. Record updated!\n",
+//                                contacts.get(position).getName(), contacts.get(position).getNumber());
+//                        saveContacts(contacts);
+//                        break;
+//                    } catch (Exception e) {
+//                        System.err.println(e.getMessage());
+//                        System.out.println("Enter a new number:");
+//                    }
+//                    number = input.nextLine().trim();
+//                }
+//
+//            } else {
+//                System.out.println("Sorry, name not found!");
+//            }
+//
+//        }
+//
+//        System.out.println();
+//        System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
+//    }
+
+    private static void deleteContact(Map<String, List<String>> contacts, Scanner input) {
         System.out.println("Enter name of the contact to be deleted:");
         String name = input.nextLine().trim();
 
-        List<Contact> contacts = loadContacts();
-        if (contacts == null) {
-            System.out.println("Sorry, could not load list of contacts!");
+        if (contacts.containsKey(name)) {
+            System.out.printf("Contact '%s' will be deleted. Are you sure? [Y/N]:\n", name);
+            String confirmation = input.nextLine().trim().toLowerCase();
+            confirm:
+            while (true) {
+                switch (confirmation) {
+                    case "y":
+                        contacts.remove(name);
+                        saveContacts(contacts);
+                        System.out.println("Contact was deleted successfully!");
+                        break confirm;
+                    case "n":
+                        break confirm;
+                    default:
+                        System.out.println("Delete contact? [Y/N]:");
+                        break;
+                }
+                confirmation = input.nextLine().trim().toLowerCase();
+            }
+
         } else {
-            int position = -1;
-            for (int i = 0; i < contacts.size(); i++) {
-                if (contacts.get(i).getName().equals(name)) {
-                    position = i;
-                    break;
-                }
-            }
-
-            if (position > -1) {
-                System.out.printf("Contact '%s' will be deleted. Are you sure? [Y/N]:\n", contacts.get(position));
-                String confirmation = input.nextLine().trim().toLowerCase();
-                confLabel:
-                while (true) {
-                    switch (confirmation) {
-                        case "y":
-                            contacts.remove(position);
-                            saveContacts(contacts);
-                            System.out.println("Contact was deleted successfully!");
-                            break confLabel;
-                        case "n":
-                            break confLabel;
-                        default:
-                            System.out.println("Delete contact? [Y/N]:");
-                            break;
-                    }
-                    confirmation = input.nextLine().trim().toLowerCase();
-                }
-
-            } else {
-                System.out.println("Sorry, name not found!");
-            }
+            System.out.println("Sorry, name not found!");
         }
 
         System.out.println();
@@ -240,11 +237,14 @@ public class PhoneBook {
 
     public static void main(String[] args) {
 
-        System.out.println("PHONE BOOK (ver 0.1)");
+        System.out.println("PHONE BOOK (ver 0.2)");
         System.out.println("===========================");
-        System.out.println("Type a command or 'exit' to quit. For a list of valid commands use 'help':");
+        System.out.println("Type a command or 'exit' to quit:");
         listCommands();
         System.out.print("> ");
+
+        Map<String, List<String>> contacts = new TreeMap<>();
+        loadContacts(contacts);
 
         Scanner input = new Scanner(System.in);
         String line = input.nextLine().trim();
@@ -253,22 +253,22 @@ public class PhoneBook {
 
             switch (line) {
                 case "list":
-                    listContacts();
+                    listContacts(contacts);
                     break;
                 case "show":
-                    showContact(input);
+                    showContact(contacts, input);
                     break;
                 case "find":
-                    findContact(input);
+                    findContact(contacts, input);
                     break;
                 case "add":
-                    addContact(input);
+                    addContact(contacts, input);
                     break;
                 case "edit":
-                    editContact(input);
+                    //editContact(input);
                     break;
                 case "delete":
-                    deleteContact(input);
+                    deleteContact(contacts, input);
                     break;
                 case "help":
                     listCommands();
@@ -283,6 +283,6 @@ public class PhoneBook {
             line = input.nextLine().trim();
         }
 
-        System.out.println("'Phone Book 0.1' terminated.");
+        System.out.println("'Phone Book 0.2' terminated.");
     }
 }
