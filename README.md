@@ -1,5 +1,5 @@
-Java Phone Book (ver 0.1)
-============================
+Java Phone Book (ver 0.2)
+=========================
 
 List, add, remove or search your contacts with this simple console application.
 
