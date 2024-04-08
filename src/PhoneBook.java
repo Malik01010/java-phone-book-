@@ -127,7 +127,7 @@ public class PhoneBook {
         }
 
         while (true) {
-            System.out.println("Enter contact number:");
+            System.out.println("Enter contact phone number:");
             number = input.nextLine().trim();
             if (number.matches("^\\+?[0-9 ]{3,25}$")) {
                 break;
